@@ -1,0 +1,17 @@
+# Build output
+build/
+out/
+cmake-build-*/
+
+# Tooling
+.cache/
+compile_commands.json
+
+# Editor / OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# ImGui runtime layout
+imgui.ini
