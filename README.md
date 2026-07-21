@@ -17,14 +17,30 @@ if it's installed as a system package CMake
 uses it, otherwise CMake fetches and builds it from source. No vcpkg, no manual
 dependency wrangling.
 
-### Linux (Arch Linux)
+### Linux
+
+**Arch:**
 
 ```bash
 sudo pacman -S --needed base-devel cmake ninja git sdl2-compat glm doctest
 paru -S --needed renderdoc   # optional: GPU frame debugger
 ```
 
-Installing `sdl2-compat`, `glm`, and `doctest` keeps the configure step fast,
+**Fedora:**
+
+```bash
+sudo dnf install gcc-c++ cmake ninja-build git SDL2-devel glm-devel doctest-devel
+sudo dnf install renderdoc   # optional: GPU frame debugger
+```
+
+**Ubuntu/Debian:**
+
+```bash
+sudo apt install build-essential cmake ninja-build git libsdl2-dev libglm-dev doctest-dev
+sudo apt install renderdoc   # optional: GPU frame debugger
+```
+
+Installing the SDL2, glm, and doctest packages keeps the configure step fast,
 omit them and CMake fetches those from source instead.
 
 ### Windows
