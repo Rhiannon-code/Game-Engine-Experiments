@@ -1,0 +1,47 @@
+name: build
+
+# Prove the engine + editor configure, build, and test on all three target
+# platforms on every push and pull request. Linux uses system packages (the
+# fast path, mirroring the Arch/pacman workflow); Windows and macOS have no
+# SDL2/glm installed, so they exercise the CMake fetch-from-source fallback.
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false        # let every OS report; one red job doesn't cancel the rest
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # CMake + Ninja on all three runners.
+      - name: Install CMake and Ninja
+        uses: lukka/get-cmake@latest
+
+      # Linux: use system SDL2/glm/doctest so find_package succeeds (fast path).
+      - name: Install dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libsdl2-dev libglm-dev doctest-dev
+
+      # Windows: put MSVC (cl.exe) on PATH so the Ninja generator can find it.
+      - name: Set up MSVC (Windows)
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Configure
+        run: cmake -B build -G Ninja
+
+      - name: Build
+        run: cmake --build build
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure

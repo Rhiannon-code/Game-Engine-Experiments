@@ -15,22 +15,58 @@ option(GAMEENGINE_BUILD_TESTS "Build unit tests" ON)
 include(FetchContent)
 
 # ---------------------------------------------------------------------------
-# System libraries (installed via pacman)
+# Dependencies (Linux / Windows / macOS)
+#
+# System packages are preferred so the configure step stays fast where they're
+# installed (Arch/CachyOS via pacman, macOS via Homebrew). When a package is
+# missing — e.g. a fresh Windows checkout with no package manager — it is
+# fetched and built from source instead, so `cmake -B build` just works on
+# every platform with no manual dependency install and no vcpkg.
 # ---------------------------------------------------------------------------
-find_package(SDL2 REQUIRED)   # window + input   (sdl2-compat)
-find_package(glm REQUIRED)    # math
+
+# --- SDL2: window + input --------------------------------------------------
+find_package(SDL2 QUIET)
+if(NOT TARGET SDL2::SDL2)
+    message(STATUS "SDL2 not found on system; fetching from source")
+    set(SDL_SHARED OFF CACHE BOOL "" FORCE)  # static: no DLL to ship on Windows
+    set(SDL_STATIC ON  CACHE BOOL "" FORCE)
+    set(SDL_TEST   OFF CACHE BOOL "" FORCE)
+    FetchContent_Declare(SDL2
+        GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
+        GIT_TAG        release-2.30.9)
+    FetchContent_MakeAvailable(SDL2)
+    if(NOT TARGET SDL2::SDL2)
+        add_library(SDL2::SDL2 ALIAS SDL2-static)  # normalise the target name
+    endif()
+endif()
+
+# --- glm: math (header-only) ----------------------------------------------
+find_package(glm QUIET)
+if(NOT TARGET glm::glm)
+    message(STATUS "glm not found on system; fetching from source")
+    FetchContent_Declare(glm
+        GIT_REPOSITORY https://github.com/g-truc/glm.git
+        GIT_TAG        1.0.1)
+    FetchContent_MakeAvailable(glm)
+endif()
 
 # ---------------------------------------------------------------------------
-# Vendored libraries (fetched + pinned by git tag)
+# Vendored libraries (always fetched + pinned by git tag)
 # ---------------------------------------------------------------------------
 
-# glad: generates a loader for exactly OpenGL 4.6 core
+# glad: generates a loader for exactly the target GL version. macOS caps desktop
+# OpenGL at 4.1 (Apple deprecated GL), so match the runtime context in main.cpp.
+if(APPLE)
+    set(GAMEENGINE_GL_VERSION 4.1)
+else()
+    set(GAMEENGINE_GL_VERSION 4.6)
+endif()
 FetchContent_Declare(glad
     GIT_REPOSITORY https://github.com/Dav1dde/glad.git
     GIT_TAG        v2.0.8
     SOURCE_SUBDIR  cmake)
 FetchContent_MakeAvailable(glad)
-glad_add_library(glad_gl STATIC REPRODUCIBLE API gl:core=4.6)
+glad_add_library(glad_gl STATIC REPRODUCIBLE API gl:core=${GAMEENGINE_GL_VERSION})
 
 # Dear ImGui (docking branch) — no CMakeLists of its own, so build a target here
 FetchContent_Declare(imgui
@@ -61,10 +97,16 @@ target_link_libraries(engine PRIVATE SDL2::SDL2 glm::glm glad_gl imgui)
 # ---------------------------------------------------------------------------
 function(gameengine_apply_sanitizers target)
     if(GAMEENGINE_ENABLE_ASAN AND CMAKE_BUILD_TYPE STREQUAL "Debug")
-        target_compile_options(${target} PRIVATE
-            -fsanitize=address,undefined -fno-omit-frame-pointer)
-        target_link_options(${target} PRIVATE
-            -fsanitize=address,undefined)
+        if(MSVC)
+            # MSVC ships AddressSanitizer but has no UBSan; the flag is enough
+            # (the linker pulls in the ASan runtime automatically).
+            target_compile_options(${target} PRIVATE /fsanitize=address)
+        else()
+            target_compile_options(${target} PRIVATE
+                -fsanitize=address,undefined -fno-omit-frame-pointer)
+            target_link_options(${target} PRIVATE
+                -fsanitize=address,undefined)
+        endif()
     endif()
 endfunction()
 gameengine_apply_sanitizers(engine)
@@ -73,7 +115,14 @@ gameengine_apply_sanitizers(engine)
 # Unit tests (doctest, via pacman)
 # ---------------------------------------------------------------------------
 if(GAMEENGINE_BUILD_TESTS)
-    find_package(doctest REQUIRED)
+    find_package(doctest QUIET)
+    if(NOT TARGET doctest::doctest)
+        message(STATUS "doctest not found on system; fetching from source")
+        FetchContent_Declare(doctest
+            GIT_REPOSITORY https://github.com/doctest/doctest.git
+            GIT_TAG        v2.4.11)
+        FetchContent_MakeAvailable(doctest)
+    endif()
     enable_testing()
     add_executable(engine_tests tests/test_main.cpp)
     target_link_libraries(engine_tests PRIVATE doctest::doctest glm::glm)

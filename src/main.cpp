@@ -1,4 +1,5 @@
-// GameEngine bootstrap: SDL2 window + OpenGL 4.6 core context + Dear ImGui.
+// GameEngine bootstrap: SDL2 window + OpenGL core context + Dear ImGui.
+// Targets GL 4.6 core on Linux/Windows and 4.1 core on macOS (see GE_GL_* below).
 // Draws a coloured triangle and an ImGui panel to prove the whole stack links
 // and runs. Everything past this becomes real engine subsystems.
 
@@ -14,16 +15,33 @@
 
 #include <cstdio>
 
+// Platform GL/GLSL target. Desktop OpenGL is capped at 4.1 on macOS (Apple
+// deprecated GL), so target 4.1 there and 4.6 everywhere else. The glad loader
+// version is chosen to match in CMakeLists.txt. Anything past the shared 4.1
+// baseline (e.g. GL_KHR_debug, DSA) must be guarded like the block below.
+#if defined(__APPLE__)
+#define GE_GL_MAJOR 4
+#define GE_GL_MINOR 1
+#define GE_GLSL_VERSION "410"
+#else
+#define GE_GL_MAJOR 4
+#define GE_GL_MINOR 6
+#define GE_GLSL_VERSION "460"
+#endif
+
+#if !defined(__APPLE__)
 // GL_KHR_debug callback — routes driver warnings/errors to stderr. One of the
-// highest-value debugging aids when you start writing the renderer.
+// highest-value debugging aids when you start writing the renderer. Core in GL
+// 4.3+, so unavailable on the macOS 4.1 path.
 static void gl_debug_callback(GLenum, GLenum type, GLuint, GLenum severity,
                               GLsizei, const GLchar* message, const void*) {
     if (severity == GL_DEBUG_SEVERITY_NOTIFICATION) return;
     std::fprintf(stderr, "[GL]%s %s\n",
                  type == GL_DEBUG_TYPE_ERROR ? " ERROR" : "", message);
 }
+#endif
 
-static const char* kVertexShader = R"(#version 460 core
+static const char* kVertexShader = "#version " GE_GLSL_VERSION " core\n" R"(
 layout(location = 0) in vec2 aPos;
 layout(location = 1) in vec3 aColor;
 out vec3 vColor;
@@ -33,7 +51,7 @@ void main() {
 }
 )";
 
-static const char* kFragmentShader = R"(#version 460 core
+static const char* kFragmentShader = "#version " GE_GLSL_VERSION " core\n" R"(
 in vec3 vColor;
 out vec4 FragColor;
 void main() { FragColor = vec4(vColor, 1.0); }
@@ -60,10 +78,17 @@ int main(int, char**) {
         return 1;
     }
 
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 6);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, GE_GL_MAJOR);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, GE_GL_MINOR);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+#if defined(__APPLE__)
+    // macOS requires the forward-compatible flag for a core context and has no
+    // GL debug-output extension.
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS,
+                        SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG);
+#else
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_DEBUG_FLAG);
+#endif
     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
 
     SDL_Window* window = SDL_CreateWindow(
@@ -88,9 +113,11 @@ int main(int, char**) {
     }
     std::printf("OpenGL %s\n", glGetString(GL_VERSION));
 
+#if !defined(__APPLE__)
     glEnable(GL_DEBUG_OUTPUT);
     glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
     glDebugMessageCallback(gl_debug_callback, nullptr);
+#endif
 
     // --- Triangle geometry: pos.xy, color.rgb interleaved ---
     const float verts[] = {
@@ -127,7 +154,7 @@ int main(int, char**) {
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
     ImGui::StyleColorsDark();
     ImGui_ImplSDL2_InitForOpenGL(window, ctx);
-    ImGui_ImplOpenGL3_Init("#version 460");
+    ImGui_ImplOpenGL3_Init("#version " GE_GLSL_VERSION);
 
     bool running = true;
     while (running) {
@@ -146,7 +173,8 @@ int main(int, char**) {
         ImGui::NewFrame();
 
         ImGui::Begin("Engine");
-        ImGui::Text("SDL2 + OpenGL 4.6 core + Dear ImGui (docking)");
+        ImGui::Text("SDL2 + OpenGL %s core + Dear ImGui (docking)",
+                    GE_GLSL_VERSION);
         ImGui::Text("%.1f FPS (%.3f ms/frame)", io.Framerate,
                     1000.0f / io.Framerate);
         ImGui::End();
