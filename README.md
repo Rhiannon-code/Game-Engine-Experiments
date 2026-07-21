@@ -12,25 +12,25 @@ triangle. Subsystems land from here per the roadmap.
 ## Prerequisites
 
 All you strictly need is a **C++20 compiler, CMake ≥ 3.20, Ninja, and Git**.
-Every library (SDL2, glm, glad, Dear ImGui, doctest, and later EnTT / stb /
-ImGuizmo) is resolved automatically: if it's installed as a system package CMake
+Every library (SDL2, glm, glad, Dear ImGui, doctest, and later EnTT/stb/ImGuizmo) is resolved automatically: 
+if it's installed as a system package CMake
 uses it, otherwise CMake fetches and builds it from source. No vcpkg, no manual
 dependency wrangling.
 
-### Linux (Arch / CachyOS)
+### Linux (Arch Linux)
 
 ```bash
 sudo pacman -S --needed base-devel cmake ninja git sdl2-compat glm doctest
 paru -S --needed renderdoc   # optional: GPU frame debugger
 ```
 
-Installing `sdl2-compat`, `glm`, and `doctest` keeps the configure step fast;
+Installing `sdl2-compat`, `glm`, and `doctest` keeps the configure step fast,
 omit them and CMake fetches those from source instead.
 
 ### Windows
 
 Install **Visual Studio 2022** ("Desktop development with C++" workload) or
-MSYS2/MinGW, plus **CMake**, **Ninja**, and **Git** — all available from the
+MSYS2/MinGW, plus **CMake**, **Ninja**, and **Git** all available from the
 Visual Studio installer, `winget`, or your package manager. No SDL2/glm install
 is required: CMake fetches and *statically* links them, so there is no DLL to
 copy next to the executable. Configure and build from a "Developer" shell:
@@ -44,16 +44,16 @@ cmake --build build
 
 ```bash
 xcode-select --install                 # Apple Clang + toolchain
-brew install cmake ninja git           # sdl2 / glm optional (else fetched)
+brew install cmake ninja git           # sdl2/glm optional (else fetched)
 ```
 
-macOS runs on an **OpenGL 4.1 core** context — Apple froze desktop OpenGL at 4.1
-and deprecated it — while Linux and Windows use **4.6**. The engine picks the
+macOS runs on an **OpenGL 4.1 core** context, Apple froze desktop OpenGL at 4.1
+and deprecated it, while Linux and Windows use **4.6**. The engine picks the
 right version per platform automatically (`GE_GL_*` in `src/main.cpp`,
 `GAMEENGINE_GL_VERSION` in `CMakeLists.txt`), and features that require GL 4.3+
-(e.g. the debug-output callback) are compiled out there. As the renderer grows,
+(e.g. the debug output callback) are compiled out there. As the renderer grows,
 any GL 4.3+‑only feature (compute shaders, SSBOs, DSA) will need a 4.1 fallback
-path — or eventually a separate backend — to stay macOS-compatible.
+path, or eventually a separate backend, to stay macOS compatible.
 
 ## Build & run
 
@@ -84,7 +84,7 @@ ctest --test-dir build --output-on-failure
 8. **Polish:** README media, devblog, cleanup
 9.  **3D foundations:** perspective camera, depth testing, editor fly/orbit camera
 10. **Meshes & model loading:** Mesh/Model classes, load textured models (tinyobj/glTF)
-11. **Lighting & materials:** Blinn-Phong (directional + point lights); stretch: PBR
+11. **Lighting & materials:** Blinn-Phong (directional + point lights), stretch: PBR
 12. **3D in the editor:** mesh/material/light components, 3D gizmos, scene grid
 
 ## Layout
